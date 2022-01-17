@@ -62,7 +62,7 @@ if [ ! -d "$DESTDIR/var/lib/ddos" ]; then
     mkdir -p "$DESTDIR/var/lib/ddos"
 fi
 
-echo; echo 'Installing DOS-Deflate 0.9'; echo
+echo; echo 'Installing DOS-Deflate 1.4'; echo
 
 if [ ! -e "$DESTDIR/etc/ddos/ddos.conf" ]; then
     echo -n 'Adding: /etc/ddos/ddos.conf...'
@@ -180,7 +180,7 @@ echo; echo 'Installation has completed!'
 echo 'Config files are located at /etc/ddos/'
 echo
 echo 'Please send in your comments and/or suggestions to:'
-echo 'https://github.com/jgmdev/ddos-deflate/issues'
+echo 'https://github.com/ButterscotchVanilla/ddos-deflate/issues'
 echo
 
 exit 0

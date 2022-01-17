@@ -36,7 +36,7 @@ ipfw, iptables, or Advanced Policy Firewall (APF).
 * The script can run as a cron job at chosen frequency via the configuration file (default: 1 minute)
 * The script can run as a daemon at chosen frequency via the configuration file (default: 5 seconds)
 * You can receive email alerts when IP addresses are blocked.
-* Control blocking by connection state ( man nestat).
+* Control blocking by connection state (man nestat).
 * Auto-detection of firewall.
 * Support for APF, CSF, ipfw, and iptables.
 * Logs events to /var/log/ddos.log
@@ -58,7 +58,7 @@ sudo apt install tcpdump dsniff net-tools dnsutils grepcidr iftop zip unzip -y
 As root user execute the following commands:
 
 ```shell
-wget https://github.com/Poli-Systems/ddos-deflate/archive/master.zip -O ddos.zip
+wget https://github.com/ButterscotchVanilla/ddos-deflate/archive/master.zip -O ddos.zip
 unzip ddos.zip
 cd ddos-deflate-master
 ./install.sh

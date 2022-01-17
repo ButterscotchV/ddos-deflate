@@ -64,8 +64,9 @@ load_conf()
 
 ddos_head()
 {
-    echo "DDoS-Deflate version 1.3"
+    echo "DDoS-Deflate version 1.4"
     echo "Copyright (C) 2005, Zaf <zaf@vsnl.com>"
+    echo "Parial rewrite 2020, Poli <admin@polisystems.ch>"
     echo
 }
 
@@ -159,6 +160,9 @@ ban_ip()
             $IPF -q add "$next_number" deny all from "$1" to any
         elif [ "$FIREWALL" = "iptables" ]; then
             $IPT -I INPUT -s "$1" -j DROP
+            $IPT6 -I INPUT -s "$1" -j DROP
+            $IPT -I INPUT -m string --algo bm --string "CF-Connecting-IP: $1" -j DROP
+            $IPT6 -I INPUT -m string --algo bm --string "CF-Connecting-IP: $1" -j DROP
         fi
     else
         if [ "$FIREWALL" = "ipfw" ]; then
@@ -167,6 +171,8 @@ ban_ip()
             $IPF -q add "$next_number" deny all from "$1" to any
         else
             $IPT6 -I INPUT -s "$1" -j DROP
+            $IPT -I INPUT -m string --algo bm --string "CF-Connecting-IP: $1" -j DROP
+            $IPT6 -I INPUT -m string --algo bm --string "CF-Connecting-IP: $1" -j DROP
         fi
     fi
 }
@@ -190,13 +196,19 @@ unban_ip()
             $IPF -q delete "$rule_number"
         elif [ "$FIREWALL" = "iptables" ]; then
             $IPT -D INPUT -s "$1" -j DROP
+            $IPT6 -D INPUT -s "$1" -j DROP
+            $IPT -D INPUT -m string --algo bm --string "CF-Connecting-IP: $1" -j DROP
+            $IPT6 -D INPUT -m string --algo bm --string "CF-Connecting-IP: $1" -j DROP
         fi
     else
         if [ "$FIREWALL" = "ipfw" ]; then
             rule_number=$($IPF list | awk "/$1/{print $1}")
             $IPF -q delete "$rule_number"
         else
+            $IPT -D INPUT -s "$1" -j DROP
             $IPT6 -D INPUT -s "$1" -j DROP
+            $IPT -D INPUT -m string --algo bm --string "CF-Connecting-IP: $1" -j DROP
+            $IPT6 -D INPUT -m string --algo bm --string "CF-Connecting-IP: $1" -j DROP
         fi
     fi
 
@@ -238,11 +250,12 @@ unban_ip_list()
 # param1 The ip address to block
 ban_ip_cloudflare()
 {
-    if ! echo "$1" | grep ":">/dev/null; then
+    if [ ! -z "$1" ] ; then
+        $IPT -I INPUT -s "$1" -j DROP
+        $IPT6 -I INPUT -s "$1" -j DROP
         $IPT -I INPUT -m string --algo bm --string "CF-Connecting-IP: $1" -j DROP
-    else
         $IPT6 -I INPUT -m string --algo bm --string "CF-Connecting-IP: $1" -j DROP
-    fi
+   fi
 }
 
 # Unbans an ip using iptables or ip6tables for ipv6 connections.
@@ -255,9 +268,10 @@ unban_ip_cloudflare()
         return 1
     fi
 
-    if ! echo "$1" | grep ":">/dev/null; then
+    if [ "$1" != "" ]; then
+        $IPT -D INPUT -s "$1" -j DROP
+        $IPT6 -D INPUT -s "$1" -j DROP
         $IPT -D INPUT -m string --algo bm --string "CF-Connecting-IP: $1" -j DROP
-    else
         $IPT6 -D INPUT -m string --algo bm --string "CF-Connecting-IP: $1" -j DROP
     fi
 
@@ -331,17 +345,16 @@ get_connections()
 {
     # Find all connections
     if [ "$2" = "" ]; then
-        if ! $SS_MISSING; then
             ss -ntu"$1" \
                 state $(echo "$CONN_STATES" | sed 's/:/ state /g') | \
                 # fixing dependency on '-H' switch which is unavailable in some versions of ss
                 tail -n +2 | \
                 # Fix possible ss bug
                 sed -E "s/(tcp|udp)/\\1 /g"
-        else
-            netstat -ntu"$1" | tail -n+3 | grep -E "$CONN_STATES_NS" | \
-                # Add [] brackets and prepend dummy column to match ss output
-                awk '{
+
+        netstat -ntu"$1" | tail -n+3 | grep -E "$CONN_STATES_NS" | \
+        # Add [] brackets and prepend dummy column to match ss output
+        awk '{
                     if($1 == "tcp6" || $1 == "udp6") {
                         gsub(/:[0-9]+$/, "]&", $4)
                         gsub(/:[0-9]+$/, "]&", $5)
@@ -350,20 +363,18 @@ get_connections()
                     } else {
                         print "col " $1 " " $2 " " $3 " " $4 " " $5;
                     }
-                }'
-        fi
+        }'
     # Find listening services
     else
-        if ! $SS_MISSING; then
             # state unconnected used to also include udp services
             ss -ntu"$1" state listening state unconnected | \
                 tail -n +2 | \
                 # Fix possible ss bug and convert *:### to [::]:###
                 sed -E "s/(tcp|udp)/\\1 /g; s/ *:([0-9]+) / [::]:\\1 /g"
-        else
-            netstat -ntul"$1" | tail -n+3 | \
-                # Add [] brackets and prepend dummy column to match ss output
-                awk '{
+
+        netstat -ntu"$1" | tail -n+3 | \
+        # Add [] brackets and prepend dummy column to match ss output
+        awk '{
                     if($1 == "tcp6" || $1 == "udp6") {
                         gsub(/:[0-9]+$/, "]&", $4)
                         gsub(/:([0-9]+|\*)$/, "]&", $5)
@@ -372,8 +383,7 @@ get_connections()
                     } else {
                         print "col " $1 " " $2 " " $3 " " $4 " " $5;
                     }
-                }'
-        fi
+        }'
     fi
 }
 
@@ -606,7 +616,7 @@ ban_cloudflare()
     whitelist=$(ignore_list "1")
 
     if [ "$1" != "" ]; then
-        tcpdump -r "$CLOUDFLARE_PCAP" -n -A 2>/dev/null | \
+        tcpdump -e -nn -vv -r "$CLOUDFLARE_PCAP" 2>/dev/null | \
             # filter tcpdump data to the CF needed header
             grep "CF-Connecting-IP:" | \
             # Extract ip
@@ -622,7 +632,7 @@ ban_cloudflare()
             # Only store connections that exceed max allowed
             awk "{ if (\$1 >= $NO_OF_CONNECTIONS) print; }" > "$1"
     else
-        tcpdump -r "$CLOUDFLARE_PCAP" -n -A 2>/dev/null | \
+        tcpdump -e -nn -vv -r "$CLOUDFLARE_PCAP" 2>/dev/null | \
             # filter tcpdump data to the CF needed header
             grep "CF-Connecting-IP:" | \
             # Extract ip
@@ -1316,7 +1326,7 @@ daemon_loop()
     if $ENABLE_CLOUDFLARE; then
         # kill any previous opened tcpdump session.
         pkill -9 tcpdump
-        tcpdump -w "$CLOUDFLARE_PCAP" -G "$((DAEMON_FREQ+DAEMON_FREQ))" &
+        tcpdump -s500 -w "$CLOUDFLARE_PCAP" -G "$((DAEMON_FREQ+DAEMON_FREQ))" &
     fi
 
     if $ENABLE_PORTS; then

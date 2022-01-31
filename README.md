@@ -58,7 +58,7 @@ sudo apt install tcpdump dsniff net-tools dnsutils grepcidr iftop zip unzip -y
 As root user execute the following commands:
 
 ```shell
-wget https://github.com/ButterscotchVanilla/ddos-deflate/archive/master.zip -O ddos.zip
+wget https://github.com/ButterscotchV/ddos-deflate/archive/master.zip -O ddos.zip
 unzip ddos.zip
 cd ddos-deflate-master
 ./install.sh

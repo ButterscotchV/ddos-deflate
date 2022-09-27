@@ -1429,7 +1429,17 @@ detect_interfaces()
 
     for interface in $interfaces; do
         if ping -I "$interface" -c1 8.8.8.8>/dev/null; then
-            BANDWIDTH_INTERFACES="$BANDWIDTH_INTERFACES $interface"
+            # Checks if the interface is in the whitelist
+            if $ENABLE_INTERFACE_WHITELIST; then
+                for whitelisted_interface in $(grep -v "#" "${CONF_PATH}${INTERFACE_WHITELIST}"); do
+                    if [ "$interface" = "$whitelisted_interface" ]; then
+                        BANDWIDTH_INTERFACES="$BANDWIDTH_INTERFACES $interface"
+                        break
+                    fi
+                done
+            else
+                BANDWIDTH_INTERFACES="$BANDWIDTH_INTERFACES $interface"
+            fi
         fi
     done
 }
@@ -1540,6 +1550,8 @@ SBINDIR="/usr/local/sbin"
 PROG="$PROGDIR/ddos.sh"
 IGNORE_IP_LIST="ignore.ip.list"
 IGNORE_HOST_LIST="ignore.host.list"
+INTERFACE_WHITELIST="interface.whitelist.list"
+ENABLE_INTERFACE_WHITELIST=false
 CRON="/etc/cron.d/ddos"
 APF="/usr/sbin/apf"
 CSF="/usr/sbin/csf"

@@ -82,6 +82,12 @@ if [ ! -e "$DESTDIR/etc/ddos/ignore.host.list" ]; then
     echo " (done)"
 fi
 
+if [ ! -e "$DESTDIR/etc/ddos/interface.whitelist.list" ]; then
+    echo -n 'Adding: /etc/ddos/interface.whitelist.list...'
+    cp config/interface.whitelist.list "$DESTDIR/etc/ddos/interface.whitelist.list" > /dev/null 2>&1
+    echo " (done)"
+fi
+
 echo -n 'Adding: /usr/local/ddos/LICENSE...'
 cp LICENSE "$DESTDIR/usr/local/ddos/LICENSE" > /dev/null 2>&1
 echo " (done)"
